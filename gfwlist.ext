@@ -23,3 +23,33 @@
 # Telegram IPv6
 ~2001:67c:4e8::/48
 ~2001:0b28:f23d::/48
+
+# Domain name
+@twitter.com
+@youtube.com
+@google.com
+@wikipedia.org
+@ubuntu.com
+@github.com
+@github.io
+@kernel.org
+@docker.com
+@virtualbox.com
+@ycombinator.com
+@bootlin.com
+@stackoverflow.com
+@stackexchange.com
+@python.org
+@pythonhosted.org
+@privoxy.org
+@linuxmint.com
+@snapcraft.io
+@tightvnc.com
+@micron.com
+@alldatasheet.com
+@pushbullet.com
+@reddit.com
+@libthomas.org
+@askubuntu.com
+@banwagong.com
+@bwh8.net
