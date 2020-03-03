@@ -240,7 +240,6 @@ delete_pidfile() {
 }
 
 load_config() {
-    for optentry in "${optentries[@]}"; do eval "$optentry"; done
     if ! file_is_exists "$ss_tproxy_config"; then
         log_error "file not found: $ss_tproxy_config"
     else
@@ -419,33 +418,20 @@ update_chnroute() {
 
 start_dnsserver_global() {
     local dnsmasq_config_string=$(cat <<EOF
-$(is_true "$dnsmasq_log_enable" && echo 'log-queries')
-log-facility = $dnsmasq_log_file
-log-async = 20
-domain-needed
-cache-size = $dnsmasq_cache_size
-$([ $(dnsmasq --help | grep -c min-cache-ttl) -ne 0 ] && echo "min-cache-ttl = $dnsmasq_cache_time")
-no-negcache
-no-resolv
-port = $dnsmasq_bind_port
-$(is_true "$ipv4" && echo "server = $dns_remote")
-$(is_true "$ipv6" && echo "server = $dns_remote6")
-$(
-grep -E '^@' $file_ignlist_ext | cut -c2- | while read domain_name; do
-    is_true "$ipv4" && echo "server = /$domain_name/$dns_direct"
-    is_true "$ipv6" && echo "server = /$domain_name/$dns_direct6"
-    if is_true "$ipv4" && is_true "$ipv6"; then
-        echo "ipset = /$domain_name/privaddr,privaddr6"
-    elif is_true "$ipv4"; then
-        echo "ipset = /$domain_name/privaddr"
-    else
-        echo "ipset = /$domain_name/privaddr6"
-    fi
-done
-)
-$(for append_config in "${dnsmasq_append_config[@]}"; do echo "$append_config"; done)
-$(for conf_dir_arg in "${dnsmasq_conf_dir[@]}"; do echo "conf-dir = $conf_dir_arg"; done)
-$(for conf_file_arg in "${dnsmasq_conf_file[@]}"; do echo "conf-file = $conf_file_arg"; done)
+        $(echo "$dnsmasq_common_config")
+        $(is_true "$ipv4" && echo "server = $dns_remote")
+        $(is_true "$ipv6" && echo "server = $dns_remote6")
+        $(grep -E '^@' $file_ignlist_ext | cut -c2- | while read domain_name; do
+            is_true "$ipv4" && echo "server = /$domain_name/$dns_direct"
+            is_true "$ipv6" && echo "server = /$domain_name/$dns_direct6"
+            if is_true "$ipv4" && is_true "$ipv6"; then
+                echo "ipset = /$domain_name/privaddr,privaddr6"
+            elif is_true "$ipv4"; then
+                echo "ipset = /$domain_name/privaddr"
+            else
+                echo "ipset = /$domain_name/privaddr6"
+            fi
+        done)
 EOF
 )
     status_dnsmasq_pid=$(dnsmasq --keep-in-foreground --conf-file=- <<<"$dnsmasq_config_string" & echo $!)
@@ -453,33 +439,20 @@ EOF
 
 start_dnsserver_gfwlist() {
     local dnsmasq_config_string=$(cat <<EOF
-$(is_true "$dnsmasq_log_enable" && echo 'log-queries')
-log-facility = $dnsmasq_log_file
-log-async = 20
-domain-needed
-cache-size = $dnsmasq_cache_size
-$([ $(dnsmasq --help | grep -c min-cache-ttl) -ne 0 ] && echo "min-cache-ttl = $dnsmasq_cache_time")
-no-negcache
-no-resolv
-port = $dnsmasq_bind_port
-$(is_true "$ipv4" && echo "server = $dns_direct")
-$(is_true "$ipv6" && echo "server = $dns_direct6")
-$(
-{ cat $file_gfwlist_txt; grep -E '^@' $file_gfwlist_ext | cut -c2-; } | while read domain_name; do
-    is_true "$ipv4" && echo "server = /$domain_name/$dns_remote"
-    is_true "$ipv6" && echo "server = /$domain_name/$dns_remote6"
-    if is_true "$ipv4" && is_true "$ipv6"; then
-        echo "ipset = /$domain_name/gfwlist,gfwlist6"
-    elif is_true "$ipv4"; then
-        echo "ipset = /$domain_name/gfwlist"
-    else
-        echo "ipset = /$domain_name/gfwlist6"
-    fi
-done
-)
-$(for append_config in "${dnsmasq_append_config[@]}"; do echo "$append_config"; done)
-$(for conf_dir_arg in "${dnsmasq_conf_dir[@]}"; do echo "conf-dir = $conf_dir_arg"; done)
-$(for conf_file_arg in "${dnsmasq_conf_file[@]}"; do echo "conf-file = $conf_file_arg"; done)
+        $(echo "$dnsmasq_common_config")
+        $(is_true "$ipv4" && echo "server = $dns_direct")
+        $(is_true "$ipv6" && echo "server = $dns_direct6")
+        $({ cat $file_gfwlist_txt; grep -E '^@' $file_gfwlist_ext | cut -c2-; } | while read domain_name; do
+            is_true "$ipv4" && echo "server = /$domain_name/$dns_remote"
+            is_true "$ipv6" && echo "server = /$domain_name/$dns_remote6"
+            if is_true "$ipv4" && is_true "$ipv6"; then
+                echo "ipset = /$domain_name/gfwlist,gfwlist6"
+            elif is_true "$ipv4"; then
+                echo "ipset = /$domain_name/gfwlist"
+            else
+                echo "ipset = /$domain_name/gfwlist6"
+            fi
+        done)
 EOF
 )
     status_dnsmasq_pid=$(dnsmasq --keep-in-foreground --conf-file=- <<<"$dnsmasq_config_string" & echo $!)
@@ -515,32 +488,19 @@ start_dnsserver_chnroute() {
     fi
 
     local dnsmasq_config_string=$(cat <<EOF
-$(is_true "$dnsmasq_log_enable" && echo 'log-queries')
-log-facility = $dnsmasq_log_file
-log-async = 20
-domain-needed
-cache-size = $dnsmasq_cache_size
-$([ $(dnsmasq --help | grep -c min-cache-ttl) -ne 0 ] && echo "min-cache-ttl = $dnsmasq_cache_time")
-no-negcache
-no-resolv
-port = $dnsmasq_bind_port
-server = 127.0.0.1#$chinadns_bind_port
-$(
-grep -E '^@' $file_ignlist_ext | cut -c2- | while read domain_name; do
-    is_true "$ipv4" && echo "server = /$domain_name/$dns_direct"
-    is_true "$ipv6" && echo "server = /$domain_name/$dns_direct6"
-    if is_true "$ipv4" && is_true "$ipv6"; then
-        echo "ipset = /$domain_name/privaddr,privaddr6"
-    elif is_true "$ipv4"; then
-        echo "ipset = /$domain_name/privaddr"
-    else
-        echo "ipset = /$domain_name/privaddr6"
-    fi
-done
-)
-$(for append_config in "${dnsmasq_append_config[@]}"; do echo "$append_config"; done)
-$(for conf_dir_arg in "${dnsmasq_conf_dir[@]}"; do echo "conf-dir = $conf_dir_arg"; done)
-$(for conf_file_arg in "${dnsmasq_conf_file[@]}"; do echo "conf-file = $conf_file_arg"; done)
+        $(echo "$dnsmasq_common_config")
+        server = 127.0.0.1#$chinadns_bind_port
+        $(grep -E '^@' $file_ignlist_ext | cut -c2- | while read domain_name; do
+            is_true "$ipv4" && echo "server = /$domain_name/$dns_direct"
+            is_true "$ipv6" && echo "server = /$domain_name/$dns_direct6"
+            if is_true "$ipv4" && is_true "$ipv6"; then
+                echo "ipset = /$domain_name/privaddr,privaddr6"
+            elif is_true "$ipv4"; then
+                echo "ipset = /$domain_name/privaddr"
+            else
+                echo "ipset = /$domain_name/privaddr6"
+            fi
+        done)
 EOF
 )
     status_dnsmasq_pid=$(dnsmasq --keep-in-foreground --conf-file=- <<<"$dnsmasq_config_string" & echo $!)
@@ -550,8 +510,8 @@ start_dnsserver() {
     local dnsmasq_append_config=("${dnsmasq_conf_string[@]}")
     if is_true "$ipv4"; then
         for ((i = 0; i < ${#proxy_svraddr4[@]}; ++i)); do
-            local server_host="${proxy_svraddr4[$i]}"
-            local server_addr="${proxy_svripv4[$i]}"
+            local server_host="${proxy_svraddr4[i]}"
+            local server_addr="${proxy_svripv4[i]}"
             if is_domain_name "$server_host"; then
                 dnsmasq_append_config+=("address = /$server_host/$server_addr")
             fi
@@ -559,13 +519,30 @@ start_dnsserver() {
     fi
     if is_true "$ipv6"; then
         for ((i = 0; i < ${#proxy_svraddr6[@]}; ++i)); do
-            local server_host="${proxy_svraddr6[$i]}"
-            local server_addr="${proxy_svripv6[$i]}"
+            local server_host="${proxy_svraddr6[i]}"
+            local server_addr="${proxy_svripv6[i]}"
             if is_domain_name "$server_host"; then
                 dnsmasq_append_config+=("address = /$server_host/$server_addr")
             fi
         done
     fi
+
+    local dnsmasq_common_config=$(cat <<EOF
+        $(is_true "$dnsmasq_log_enable" && echo 'log-queries')
+        log-facility = $dnsmasq_log_file
+        log-async = 20
+        domain-needed
+        cache-size = $dnsmasq_cache_size
+        $([ $(dnsmasq --help | grep -c min-cache-ttl) -ne 0 ] && echo "min-cache-ttl = $dnsmasq_cache_time")
+        no-negcache
+        no-resolv
+        port = $dnsmasq_bind_port
+        dns-forward-max = $dnsmasq_query_maxcnt
+        $(for append_config in "${dnsmasq_append_config[@]}"; do echo "$append_config"; done)
+        $(for conf_dir_arg in "${dnsmasq_conf_dir[@]}"; do echo "conf-dir = $conf_dir_arg"; done)
+        $(for conf_file_arg in "${dnsmasq_conf_file[@]}"; do echo "conf-file = $conf_file_arg"; done)
+EOF
+)
 
     if ! is_enabled_udp; then
         local original_dns_remote="$dns_remote"
@@ -618,6 +595,7 @@ flush_dnscache() {
 }
 
 modify_resolvconf() {
+    [ -z "$opts_overwrite_resolv" ] && return
     if is_false "$opts_overwrite_resolv"; then
         while umount /etc/resolv.conf &>/dev/null; do true; done
         local temp_resolv_conf=$(mktemp)
@@ -631,6 +609,7 @@ modify_resolvconf() {
 }
 
 restore_resolvconf() {
+    [ -z "$opts_overwrite_resolv" ] && return
     if is_false "$opts_overwrite_resolv"; then
         while umount /etc/resolv.conf &>/dev/null; do true; done
     else
@@ -939,7 +918,7 @@ start_iptables_tproxy_mode() {
 start_iptables_redirect_mode() {
     local loopback_addr
     is_ipv4_ipts $1 && loopback_addr="127.0.0.1" || loopback_addr="::1"
-    
+
     local gfwlist_setname
     is_ipv4_ipts $1 && gfwlist_setname="gfwlist" || gfwlist_setname="gfwlist6"
 
@@ -1128,7 +1107,7 @@ version() {
 
 help() {
     cat <<'EOF'
-Usage: ss-tproxy <COMMAND> [-x] [name=value...]
+Usage: ss-tproxy <COMMAND> [-x] [-c cfgfile] [name=value...]
 COMMAND := {
     start               start ss-tproxy
     stop                stop ss-tproxy
@@ -1145,6 +1124,7 @@ COMMAND := {
     help                show help and exit
 }
 Specify the -x option for debugging of bash scripts
+Specify the -c option to use given ss-tproxy cfgfile
 Specify the name=value to override ss-tproxy configs
 Issues or bug report: https://github.com/zfl9/ss-tproxy
 See the https://www.zfl9.com/ss-redir.html for more details
@@ -1155,9 +1135,13 @@ main() {
     local arguments=()
     local optentries=()
 
-    for arg in "$@"; do
+    local arglist=("$@")
+    for ((i = 0; i < ${#arglist[@]}; ++i)); do
+        local arg="${arglist[i]}"
         if [ "$arg" = '-x' ]; then
             set -x
+        elif [ "$arg" = '-c' ]; then
+            ss_tproxy_config="${arglist[++i]}"
         elif [ $(grep -c '=' <<<"$arg") -ne 0 ]; then
             optentries+=("$arg")
         else
@@ -1188,7 +1172,7 @@ main() {
         update-chnroute) update_chnroute;;
         v*)              version;;
         h*)              help;;
-        *)               echo "$(color_yellow "Unknown option: $arg")"; help; return 1;;
+        *)               echo "$(color_yellow "Unknown option: ${arguments[0]}")"; help; return 1;;
     esac
     return 0
 }
